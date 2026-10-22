@@ -1,0 +1,41 @@
+:root {
+  --ink: #143247;
+  --body: #2f536a;
+  --paper: #edf7fd;
+  --paper-deep: #d6eefe;
+  --font-main: 'Segoe UI Variable Text', 'Franklin Gothic Medium', 'Trebuchet MS', sans-serif;
+  --font-head: 'Segoe UI Variable Display', 'Aptos Display', 'Gill Sans', sans-serif;
+
+  font-family: var(--font-main);
+  line-height: 1.45;
+  font-weight: 400;
+  color: var(--body);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 10% -20%, rgba(73, 168, 212, 0.38), transparent 35%),
+    radial-gradient(circle at 96% 15%, rgba(77, 181, 130, 0.25), transparent 38%),
+    linear-gradient(180deg, var(--paper), var(--paper-deep));
+}
+
+#root {
+  min-height: 100vh;
+}
+
+h1,
+h2,
+button,
+th {
+  font-family: var(--font-head);
+}

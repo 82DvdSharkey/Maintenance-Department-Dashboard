@@ -1,0 +1,11 @@
+streamlit[pdf]>=1.50
+pandas>=2.2
+plotly>=5.24
+SQLAlchemy>=2.0
+openpyxl>=3.1
+xlrd>=2.0
+pytest>=8.0
+reportlab>=4.2,<5
+matplotlib>=3.8,<4
+tzdata>=2024.1
+pypdf>=5,<6

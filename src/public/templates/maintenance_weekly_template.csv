@@ -1,0 +1,6 @@
+Date,Week,Shift,Work Order Number,Work Order Type,Technician,Line / Asset,Issue Description,Failure Mode,Downtime Minutes,Status,Priority,Response Time,Repair Time
+2026-06-08,2026-W24,1st,2001,PM,A. Lopez,Line 1,Weekly PM package,N/A,12,Closed,Medium,10,18
+2026-06-08,2026-W24,2nd,2002,Reactive-Breakdown,M. Turner,Line 3,Conveyor trip,Electrical fault,67,Closed,High,6,43
+2026-06-09,2026-W24,3rd,2003,Consumables,R. Collins,Line 4,Nozzle replacement,Wear,9,Closed,Low,11,15
+2026-06-10,2026-W24,1st,2004,Reactive-Process Check,D. Ahmed,Line 2,Sensor adjustment,Calibration drift,21,Closed,Medium,8,20
+2026-06-11,2026-W24,2nd,2005,Rebuild,N. Bailey,Line 5,Gearbox rebuild,Bearing wear,88,Closed,High,13,76

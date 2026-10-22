@@ -1,0 +1,4 @@
+WO,Parent Asset,Asset,Task Description,Time Spent,Completed By,Date Completed,WO Type
+3010,Global1,GL1 Laser Weld,PM belt inspection and tension adjustment,1.5,A. Lopez,6/8/2026 8:15,Preventative (PM)
+3011,Ultralign1,UL1 Op250 FFT,Hydraulic leak repair on actuator manifold,3.1,M. Turner,6/9/2026 15:05,Reactive-Breakdown
+3012,Universal9,UV9 Op90 Rotary FFT,Operator support and process verification,1.0,N. Bailey,6/10/2026 23:20,Proactive

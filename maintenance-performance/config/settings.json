@@ -1,0 +1,20 @@
+{
+  "fiix_source_dir": "G:\\Maintenance\\$_Metrics\\Fiix\\Weekly Reports",
+  "ignition_source_dir": "G:\\Maintenance\\$_Metrics\\IGN Call Data",
+  "dayforce_source_dir": "G:\\Maintenance\\$_Metrics\\Dayforce Data",
+  "dayforce_file_patterns": [
+    "*.xlsx",
+    "*/*.xlsx"
+  ],
+  "fiix_file_patterns": [
+    "*/*.csv"
+  ],
+  "ignition_file_patterns": [
+    "*/*.xlsx",
+    "*/*.xls"
+  ],
+  "ignition_sheet_name": "Dataset 1",
+  "database_path": "data/maintenance_metrics.db",
+  "week_start_offset_hours": 1.0,
+  "department_name": "Final Assembly Maintenance"
+}
