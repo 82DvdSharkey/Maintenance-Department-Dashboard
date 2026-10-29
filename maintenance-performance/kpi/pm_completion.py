@@ -12,6 +12,7 @@ import re
 import pandas as pd
 
 from kpi.first_time_fix import excluded_status_mask
+from kpi.peer_shares import technician_peer_share
 
 
 def pm_area_column(area: str) -> str:
@@ -63,32 +64,5 @@ def completed_pm_rows(fiix: pd.DataFrame, exclude_duplicates: bool = True, exclu
 
 def technician_pm_peer_share(pm_done: pd.DataFrame, technicians: pd.DataFrame) -> pd.DataFrame:
     """Own closed PMs / own plus eligible peers' closed PMs, for the supplied period."""
-    roster = technicians[["technician_id"]].copy()
-    for column in ("shift", "crew"):
-        roster[column] = technicians.get(column, pd.Series(None, index=technicians.index, dtype="object"))
-        roster[column] = roster[column].astype("string").str.strip().str.casefold().replace("", pd.NA)
-    active = technicians["active"].fillna(False).astype(bool)
-    lead = technicians.get("is_lead", pd.Series(False, index=technicians.index)).fillna(False).astype(bool)
-    department = technicians.get("in_department", pd.Series(True, index=technicians.index)).fillna(False).astype(bool)
-    designated = roster[["shift", "crew"]].notna().all(axis=1)
-    eligible = active & ~lead & department & designated
     counts = pm_done.groupby("technician_id")["wo"].count()
-    roster["pm_peer_own_completed"] = roster["technician_id"].map(counts).fillna(0).astype(float)
-    roster["pm_peer_count"] = 0
-    roster["pm_peer_group_completed"] = float("nan")
-    members = roster.loc[eligible]
-    groups = members.groupby(["shift", "crew"], dropna=True)
-    roster.loc[eligible, "pm_peer_count"] = groups["technician_id"].transform("size") - 1
-    roster.loc[eligible, "pm_peer_group_completed"] = groups["pm_peer_own_completed"].transform("sum")
-    roster["pm_peer_reason"] = ""
-    roster.loc[~designated, "pm_peer_reason"] = "N/A: shift and crew must both be assigned."
-    roster.loc[~active | lead | ~department, "pm_peer_reason"] = (
-        "N/A: peer comparison requires an active, non-lead maintenance technician.")
-    roster.loc[eligible & roster["pm_peer_count"].eq(0), "pm_peer_reason"] = (
-        "N/A: no other active, non-lead technicians match this shift and crew.")
-    roster.loc[eligible & roster["pm_peer_count"].gt(0) & roster["pm_peer_group_completed"].eq(0),
-               "pm_peer_reason"] = "N/A: the shift-and-crew group has no closed PMs in this period."
-    valid = roster["pm_peer_reason"].eq("")
-    roster["pm_peer_share_pct"] = (
-        roster["pm_peer_own_completed"] / roster["pm_peer_group_completed"].where(valid) * 100.0)
-    return roster.drop(columns=["shift", "crew"])
+    return technician_peer_share(counts, technicians, prefix="pm_peer", activity="closed PMs")

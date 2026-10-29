@@ -76,6 +76,7 @@ def build_weekly_technician_report(base: BaseData, technician_id: int, reporting
                                     list(base.app_settings.get("pm_areas") or []))
     trend = trend.iloc[3:].reset_index(drop=True)
     pm_reason = trend.iloc[-1]["pm_peer_reason"]
+    call_reason = trend.iloc[-1]["call_peer_reason"]
     person_columns = [KPI_DEFS[key].column for key in TECHNICIAN_KPIS]
     trend = trend[["week_key", "week_label", *person_columns,
                    *[f"{column}_r4" for column in person_columns]]].copy()
@@ -120,6 +121,10 @@ def build_weekly_technician_report(base: BaseData, technician_id: int, reporting
                "as repeat work orders arrive. This is not reviewer-classified incident FTF."]
     if pm_reason:
         notices.append(pm_reason)
+    notices.append("Maintenance call share: own calls / shift-and-crew total (including self), "
+                   "using active, non-lead maintenance peers and current designations.")
+    if call_reason:
+        notices.append(call_reason)
     if partial:
         notices.append("PARTIAL WEEK PREVIEW: this reporting week has not finished.")
     for label, frame in (("Fiix", inputs.fiix), ("Ignition", inputs.calls), ("Dayforce", inputs.dayforce)):

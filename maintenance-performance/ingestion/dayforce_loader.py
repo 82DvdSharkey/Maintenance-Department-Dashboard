@@ -115,7 +115,7 @@ def _clock_in_anchor(r) -> datetime:
     return datetime.combine(r.work_date, time(12))
 
 
-def import_dayforce_file(engine: Engine, path: Path, settings: dict, modified: datetime, size: int):
+def import_dayforce_file(engine: Engine, path: Path, settings: dict, modified: datetime, size: int, file_hash: str):
     from ingestion.file_manager import ImportOutcome
 
     fn_year, fn_week = parse_filename_week(path.name)
@@ -126,7 +126,8 @@ def import_dayforce_file(engine: Engine, path: Path, settings: dict, modified: d
         warnings.append("No time entries found.")
     with engine.begin() as conn:
         import_id = conn.execute(insert(FileImportHistory).values(
-            source="dayforce", filename=path.name, full_path=str(path), file_modified=modified, file_size=size,
+            source="dayforce", filename=path.name, full_path=str(path.resolve()), file_modified=modified,
+            file_size=size, file_hash=file_hash,
             filename_year=fn_year, filename_week=fn_week, import_datetime=datetime.now(),
             status="in_progress")).inserted_primary_key[0]
         replaced = 0

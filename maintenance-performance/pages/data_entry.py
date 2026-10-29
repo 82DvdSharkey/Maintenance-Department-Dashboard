@@ -45,16 +45,18 @@ def _week_picker(ctx, prefix: str) -> tuple[int, int]:
     return int(year), int(week)
 
 
-def _done(message: str) -> None:
+def _done(message: str, warning: bool = False) -> None:
     st.session_state["entry_nonce"] = st.session_state.get("entry_nonce", 0) + 1
     st.session_state["entry_message"] = message
+    st.session_state["entry_warning"] = warning
     st.rerun()
 
 
 def _week_header(ctx, dataset: str, year: int, week: int) -> bool:
     locked = repo.is_week_locked(ctx.engine, dataset, year, week)
     if msg := st.session_state.pop("entry_message", None):
-        st.success(msg)
+        warning = st.session_state.pop("entry_warning", False)
+        (st.warning if warning else st.success)(msg)
     if locked:
         st.info(f"{week_label(week_key(year, week))} is locked (finalized). Unlock it to make changes.",
                 icon=":material/lock:")
@@ -292,4 +294,4 @@ def _import_weeks(rows_by_week: dict, save) -> None:
         except (PermissionError, ValueError) as exc:
             skipped.append(str(exc))
     note = f" Skipped: {'; '.join(skipped)}" if skipped else ""
-    _done(f"Imported {imported} row(s) from CSV.{note}")
+    _done(f"Imported {imported} row(s) from CSV.{note}", warning=bool(skipped))

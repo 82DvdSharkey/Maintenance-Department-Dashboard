@@ -20,6 +20,7 @@ from ui.components import (
     trend_chart,
 )
 from ui.pdf_reporting import ReportSection, metrics_from_kpis, render_pdf_download_button
+from ui.shift_reviews import render_shift_review
 
 SMT_SPIKE_WEEK = 202639
 
@@ -101,6 +102,7 @@ def render(ctx) -> None:
     shift = st.selectbox("Shift detail", shifts, key="shift_detail")
     st.header(f"{shift}{suffix}")
     st.caption(f"Current calendar week: **{ctx.week_caption()}**")
+    render_shift_review(ctx, shift, area)
 
     trend = ctx.trend(shifts=[shift], **area_filter)
     previous = trend.iloc[-2] if len(trend) > 1 else None

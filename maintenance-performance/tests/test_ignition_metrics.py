@@ -1,7 +1,9 @@
 import pandas as pd
 import pytest
 
-from kpi.ignition_metrics import filter_maintenance_calls, seconds_to_minutes, summarize_calls
+from kpi.ignition_metrics import (
+    filter_maintenance_calls, seconds_to_minutes, summarize_calls, technician_call_peer_share,
+)
 
 
 def test_seconds_conversion():
@@ -44,3 +46,46 @@ def test_shift_average_weighted_by_calls_not_technician_averages():
     assert tech_avg == pytest.approx(6.0)
     assert shift["avg_repair_duration_min"] == pytest.approx(4.0)
     assert dept["avg_repair_duration_min"] == pytest.approx(4.0)
+
+
+@pytest.fixture
+def call_peer_roster():
+    return pd.DataFrame({
+        "technician_id": range(1, 10),
+        "shift": ["1st", " 1ST ", "1st", "2nd", "1st", "1st", "1st", "1st", None],
+        "crew": ["SMT", " smt ", "SMT", "SMT", "FA", "SMT", "SMT", "SMT", "SMT"],
+        "active": [True] * 6 + [False, True, True],
+        "is_lead": [False] * 5 + [True, False, False, False],
+        "in_department": [True] * 7 + [False, True],
+    })
+
+
+def test_call_peer_share_uses_only_eligible_same_shift_and_crew_including_self(call_peer_roster):
+    ids = [1] * 2 + [2] * 4 + [4, 5, 6, 7, 8, None] * 10
+    calls = pd.DataFrame({"id": range(len(ids)), "technician_id": ids})
+    result = technician_call_peer_share(calls, call_peer_roster).set_index("technician_id")
+    assert result.loc[1, "call_peer_share_pct"] == pytest.approx(100 / 3)
+    assert result.loc[2, "call_peer_share_pct"] == pytest.approx(200 / 3)
+    assert result.loc[3, "call_peer_share_pct"] == 0
+    assert result.loc[1, "call_peer_group_completed"] == 6
+    assert result.loc[1, "call_peer_count"] == 2
+    assert result.loc[[1, 2, 3], "call_peer_share_pct"].sum() == pytest.approx(100)
+
+
+@pytest.mark.parametrize("tech,reason", [
+    (4, "no other active"), (5, "no other active"),
+    (6, "active, non-lead"), (7, "active, non-lead"), (8, "active, non-lead"),
+    (9, "both be assigned"),
+])
+def test_call_peer_share_explains_ineligible_groups(call_peer_roster, tech, reason):
+    calls = pd.DataFrame({"id": [1], "technician_id": [1]})
+    row = technician_call_peer_share(calls, call_peer_roster).set_index("technician_id").loc[tech]
+    assert pd.isna(row["call_peer_share_pct"])
+    assert reason in row["call_peer_reason"]
+
+
+def test_call_peer_share_no_group_calls_is_na(call_peer_roster):
+    calls = pd.DataFrame(columns=["id", "technician_id"])
+    row = technician_call_peer_share(calls, call_peer_roster).iloc[0]
+    assert pd.isna(row["call_peer_share_pct"])
+    assert "no maintenance calls" in row["call_peer_reason"]

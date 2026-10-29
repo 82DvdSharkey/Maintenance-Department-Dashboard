@@ -8,6 +8,7 @@ import pandas as pd
 
 from kpi.dayforce import combine_hours, imported_weekly_hours, resolve_dayforce_technicians
 from kpi.first_time_fix import FTFConfig, evaluate_first_time_fix, reactive_wo_types
+from kpi.ignition_metrics import technician_call_peer_share
 from kpi.labor_efficiency import qualifying_labor_rows
 from kpi.pm_completion import completed_pm_rows, technician_pm_peer_share
 from kpi.scorecard import KPIInputs, weekly_trend
@@ -206,21 +207,33 @@ def technician_pm_shares(base: BaseData, state: FilterState) -> pd.DataFrame:
     return technician_pm_peer_share(inputs.pm_done, base.technicians)
 
 
+def technician_call_shares(base: BaseData, state: FilterState) -> pd.DataFrame:
+    inputs = apply_filters(base, replace(state, technician_ids=[], shifts=[]))
+    return technician_call_peer_share(inputs.calls, base.technicians)
+
+
 def technician_weekly_trend(base: BaseData, state: FilterState, keys: list[int],
                             technician_id: int, pm_areas: list[str]) -> pd.DataFrame:
     state = replace(state, week_keys=keys, date_start=None, date_end=None, technician_ids=[technician_id])
     trend = weekly_trend(apply_filters(base, state), keys, pm_areas=pm_areas)
-    pm_done = apply_filters(base, replace(state, technician_ids=[], shifts=[])).pm_done
+    group_inputs = apply_filters(base, replace(state, technician_ids=[], shifts=[]))
+    pm_done = group_inputs.pm_done
     peer_rows = []
+    call_peer_rows = []
     for key in keys:
         peers = technician_pm_peer_share(pm_done[pm_done["week_key"].eq(key)], base.technicians)
         peer_rows.append(peers.set_index("technician_id").loc[technician_id])
+        calls = group_inputs.calls[group_inputs.calls["week_key"].eq(key)]
+        call_peers = technician_call_peer_share(calls, base.technicians)
+        call_peer_rows.append(call_peers.set_index("technician_id").loc[technician_id])
     peers = pd.DataFrame(peer_rows).reset_index(drop=True)
-    trend = pd.concat([trend, peers], axis=1)
-    valid = peers["pm_peer_share_pct"].notna()
-    own = peers["pm_peer_own_completed"].where(valid).rolling(4, min_periods=1).sum()
-    group = peers["pm_peer_group_completed"].where(valid).rolling(4, min_periods=1).sum()
-    trend["pm_peer_share_pct_r4"] = own / group.where(group > 0) * 100.0
+    call_peers = pd.DataFrame(call_peer_rows).reset_index(drop=True)
+    trend = pd.concat([trend, peers, call_peers], axis=1)
+    for prefix in ("pm_peer", "call_peer"):
+        valid = trend[f"{prefix}_share_pct"].notna()
+        own = trend[f"{prefix}_own_completed"].where(valid).rolling(4, min_periods=1).sum()
+        group = trend[f"{prefix}_group_completed"].where(valid).rolling(4, min_periods=1).sum()
+        trend[f"{prefix}_share_pct_r4"] = own / group.where(group > 0) * 100.0
     return trend
 
 

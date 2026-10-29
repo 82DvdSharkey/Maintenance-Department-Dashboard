@@ -78,6 +78,8 @@ DEFAULT_KPI_TARGETS: dict[str, tuple[str, float, float, str, str]] = {
     "labor_efficiency": ("Labor Efficiency %", 80.0, 5.0, "higher", "%"),
     "first_time_fix": ("First-Time Fix %", 90.0, 5.0, "higher", "%"),
     "pm_completion": ("PM Completion %", 100.0, 5.0, "higher", "%"),
+    "pm_peer_share": ("Technician PM Completion Share %", 33.0, 5.0, "higher", "%"),
+    "call_peer_share": ("Technician Maintenance Call Share %", 33.0, 5.0, "higher", "%"),
     "avg_ack_min": ("Avg Acknowledge Duration (min)", 5.0, 1.0, "lower", "min"),
     "avg_response_min": ("Avg Response Duration (min)", 5.0, 1.0, "lower", "min"),
     "avg_repair_min": ("Avg Repair Duration (min)", 30.0, 5.0, "lower", "min"),
@@ -195,17 +197,23 @@ def _add_missing_indexes(engine: Engine) -> None:
             index.create(engine, checkfirst=True)
 
 
-def seed_defaults(engine: Engine) -> None:
-    now = datetime.now()
+def seed_kpi_targets(engine: Engine) -> None:
+    """Insert newly introduced targets without overwriting configured values."""
     with engine.begin() as conn:
-        for i, name in enumerate(DEFAULT_SHIFTS):
-            conn.execute(sqlite_insert(Shift).values(name=name, sort_order=i, active=True).on_conflict_do_nothing())
         for key, (label, target, band, direction, unit) in DEFAULT_KPI_TARGETS.items():
             conn.execute(
                 sqlite_insert(KPITarget)
                 .values(kpi_key=key, label=label, target=target, watch_band=band, direction=direction, unit=unit)
                 .on_conflict_do_nothing()
             )
+
+
+def seed_defaults(engine: Engine) -> None:
+    seed_kpi_targets(engine)
+    now = datetime.now()
+    with engine.begin() as conn:
+        for i, name in enumerate(DEFAULT_SHIFTS):
+            conn.execute(sqlite_insert(Shift).values(name=name, sort_order=i, active=True).on_conflict_do_nothing())
         for key, value in DEFAULT_APP_SETTINGS.items():
             conn.execute(sqlite_insert(AppSetting).values(key=key, value=json.dumps(value)).on_conflict_do_nothing())
         for wo_type, (cls, labor, ftf, pm) in DEFAULT_WO_TYPES.items():

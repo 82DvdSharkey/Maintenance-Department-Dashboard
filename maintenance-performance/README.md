@@ -58,6 +58,57 @@ technician, and their dashboard PDFs omit person-level sections.
 Microsoft sign-in does not configure scheduled email delivery. Sending reports through Outlook still requires a
 separately approved Microsoft Graph mail integration.
 
+### Quarterly and annual performance-review export
+
+On **Technician Performance**, select the review subject under **Technician detail**, then use
+**Export to PDF** and **Download Technician Review PDF**. This export contains only that person's
+performance KPIs, targets and YTD status, with **Q1, Q2, Q3, Q4 and YTD** columns. It does not include
+the department technician scorecard, peer names, rankings, comparison charts or work-order details.
+The year is taken from the sidebar's selected end week; the cutoff is **today in America/Detroit**.
+Past years cover the full year, current periods are marked partial and future quarters are not started.
+Period dates and missing-data notices are included. Calendar completion does not certify complete imports.
+
+The review uses calendar dates (Jan 1-Mar 31, Apr 1-Jun 30, Jul 1-Sep 30, Oct 1-Dec 31), independent
+of the dashboard's week-based YTD toggle. Sidebar data filters are ignored so a review always covers the
+selected person's full activity. Fiix and Ignition records are filtered by their completion/call timestamps.
+As agreed for weekly Dayforce data, **full weekly hours are included for every overlapping production
+week**, with an explicit report warning. Boundary-week hours can occur in two quarter denominators;
+labor efficiency is not an exact calendar-date ratio. YTD is calculated independently using existing KPI
+services, never by summing quarter denominators or averaging quarterly percentages.
+PM and call shares keep the existing current shift/crew peer definitions, including self, without exporting
+peer details. N/A is preserved for unavailable metrics, missing peers and periods that have not started.
+Changing the subject, year, targets, date or data version invalidates the previously prepared download.
+The separate Administration weekly report remains a single-week report.
+
+### Shift team-lead quarterly and annual reviews
+
+On **Shift Performance**, choose **Area** and **Shift detail**, then open
+**Quarterly and annual team-lead review**. Choose a **Review year** and select
+**Generate quarterly / annual review**. Preview the team KPIs, individual technician KPIs, roster and
+calculation notes, then use **Download Team Lead Review PDF**. This function is administrator-only
+because it includes individual performance data. The existing filtered-dashboard PDF remains available.
+
+The review covers **only the selected shift and crew area**, ignoring other sidebar data filters.
+It includes Q1-Q4 and independently calculated YTD values, targets and YTD status. Calendar periods,
+today's America/Detroit cutoff, partial/future labels and the full-overlapping-week Dayforce warning
+match the technician review described above. Past review years show the full year.
+The year defaults to the sidebar's selected end-week year and can be changed within the review section.
+
+Team KPIs preserve the existing shift definitions: qualifying pooled labor efficiency excludes leads
+and out-of-scope technicians, FTF uses the configured legacy technician/shift aggregation, PMs Closed
+is a count, and Ignition durations are call-weighted. Department PM Completion percentages and
+individual 33% peer-share targets are not repurposed as team targets.
+The individual breakdown includes the existing technician KPIs and peer shares. Zero-activity active
+members remain visible, while inactive members are included when their End Date overlaps the year
+or they have recorded activity. Team leads are identified in the roster. Team results are not mislabeled
+as personal lead KPIs, and personal KPI values need not sum or average to team KPI values.
+
+Shift/crew/lead assignments use the current technician master, not historical assignments.
+The existing SMT chart-only anomaly adjustment is **not** applied to review calculations.
+Missing-source notices and calendar-period dates are included; a completed calendar period does not
+certify that all imports or Dayforce hours are present. Changing shift, area, year, date, data version,
+targets or crew-area configuration invalidates the previously prepared review.
+
 ### Individual weekly technician PDF reports (Phase 2)
 
 Open **Administration > Technician Reports**, select a reporting calendar week and technician, then choose
@@ -86,10 +137,26 @@ Person/shift sidebar filters never shrink the denominator; period and other appl
 remain in effect. The four-week value pools own and group completions across four contiguous weeks,
 not an average of weekly percentages. The report reveals only the individual's percentage, not peer details.
 
-This is a **share of completed PMs**, not a percentage of assigned PMs completed. No performance
-target is assumed for this distribution metric, and the department PM target is not reused.
+This is a **share of completed PMs**, not a percentage of assigned PMs completed. Its default target
+is 33%, independently configurable from the department PM target in Administration > KPI targets.
 Existing **PMs Closed** counts and department/area **PM Completion %** (Closed / Open) remain unchanged.
 PM Assigned and PM Remaining are still N/A because assignments are stored by area, not technician.
+
+**Technician maintenance-call share:** **Maintenance Call Share (Shift/Crew)** uses the same eligible
+peer grouping as PM completion share. It equals the technician's Ignition maintenance-call count divided
+by their shift-and-crew group's total maintenance calls (including self), times 100. Its default target
+is **33%**, higher is better, with a five-percentage-point Watch band, configurable under
+Administration > KPI targets. Existing maintenance-call counts and department/shift KPIs are unchanged.
+The technician scorecard, detail cards, comparisons, trends and PDF reports include this percentage.
+The technician KPI card uses this share and its target instead of a separate untargeted call-count
+card. Raw call counts remain in the scorecard, Ignition details and report workload summary.
+New target defaults are saved automatically on reload, even when the database engine is cached;
+existing configured targets are preserved.
+Period (including year to date) and IgnAreaName filters apply to both counts; person/shift selections do
+not shrink the peer denominator. Four-week shares pool call counts instead of averaging percentages.
+Missing designations, no eligible peers or no group calls show N/A with an explanation; zero own calls
+with positive group calls show 0%. Reports include only the selected technician's share, not peer details.
+
 FTF uses the same existing work-order repeat-window calculation as Technician Performance, not the
 separate reviewer-classified incident FTF. Recent FTF outcomes can change as new repeats are imported.
 
@@ -163,7 +230,7 @@ The patterns read the year subfolders (`2024`, `2025`, `2026`, …). A new year 
      - All CallTypes are stored, but KPIs use only `CallType = Maintenance` (trimmed, case-insensitive).
 5. Duplicates are prevented. A Fiix `WO` or Ignition `ID` that already exists is skipped and logged as a data-quality issue.
 6. New Fiix WO Types are added to the WO Type configuration with classification **Other** and flagged for review.
-7. Each file gets an import-history row: file name, path, modified date, import time, row count, inserted and duplicate counts, data year/week and status. Warnings are stored with it.
+7. Each file gets an import-history row: file name, path, modified date, size, content hash, import time, row count, inserted and duplicate counts, data year/week and status. Warnings are stored with it; the path and content hash identify an unchanged file.
 8. The KPI caches are invalidated, so the dashboard updates straight away.
 
 ### Calendar weeks
@@ -176,6 +243,8 @@ Fiix and Ignition use Year, CalendarWeek, WeekStart and WeekEnd from `utils/date
 - The offset can be changed in Administration. Changing it requires a database rebuild.
 
 Dayforce entries use their clock-in time instead: Sunday clock-ins before 9:30 PM belong to the current calendar week, while clock-ins at or after 9:30 PM belong to the following calendar week. The Fiix/Ignition offset setting does not change this Dayforce rule.
+
+This leaves a source-specific boundary: weekly Dayforce hours can shift into the following week 90 minutes before the Fiix/Ignition boundary. Date-range selections also use mixed data grains: Fiix and Ignition are filtered to the selected timestamps, while weekly Dayforce hours and PM Open/Closed counts include each entire production week touched by the date range.
 
 ## Technician master table and name mapping
 
@@ -217,6 +286,7 @@ Dayforce time-entry reports (`.xlsx`, e.g. *Unauthorized Records Report* with **
 - Enter a **Total Override** to replace the calculated total.
 - **Save**, **Copy prior week** (fills technicians who are blank this week), **Bulk fill**, and **Lock finalized week** / **Unlock week**.
 - **Import from CSV**. Columns: `Year, CalendarWeek, Technician, RegularHours, OvertimeHours, OtherPaidHours, ExcludedHours, TotalHoursWorked, Comments`. A supplied `TotalHoursWorked` is stored as an override.
+- Nonblank numeric CSV cells must contain valid numbers. Invalid values are rejected for that week and do not clear or overwrite saved entries; blank rows continue to remove existing entries.
 
 ## PM Open vs Closed entry
 
@@ -226,6 +296,8 @@ Dayforce time-entry reports (`.xlsx`, e.g. *Unauthorized Records Report* with **
 - **PMs Closed:** how many of the open PMs were closed.
 
 The grid previews each area's PM Completion %. **Save**, **Copy prior week**, **Lock finalized week** / **Unlock week** and **Import from CSV** are available. CSV columns are `Year, CalendarWeek, Area, Open, Closed, Comments`. The area list is stored in the `pm_areas` app setting.
+
+PM Open/Closed values must be nonnegative whole-number counts; fractional counts are rejected.
 
 PM Completion % is a **department KPI** and is not shown for individual technicians or shifts. Technician (and shift) PM performance is **PMs Closed**: the number of Fiix `Preventative (PM)` work orders with a Closed status completed by the technician. Duplicate/admin-only closures are excluded. `kpi/pm_completion.py` takes any frame with `week_key, area, pm_open, pm_closed`, so a future Fiix scheduled-PM report could replace the manual entry.
 
@@ -240,6 +312,8 @@ PM Completion % is a **department KPI** and is not shown for individual technici
 | **PMs Closed** (technician / shift) | Count of Fiix `Preventative (PM)` WOs with a Closed status and the technician in `Completed By`. Shift value = sum of its technicians. |
 | **Maintenance Calls** | Count of Ignition calls with CallType = Maintenance |
 | **Avg Call / Ack / Response / Repair Duration** | Average of `RawCallDuration`, `RawAckDuration`, `RawResponseDuration`, `RawRepairDuration` ÷ 60, in minutes. Nulls are ignored. |
+
+Fiix `Time Spent` values below zero and malformed `H:MM` values (minutes outside 00–59) are excluded from Labor Efficiency and appear in Data Quality.
 
 How levels are aggregated:
 

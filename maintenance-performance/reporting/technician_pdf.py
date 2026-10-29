@@ -40,7 +40,7 @@ def build_technician_pdf(report: WeeklyTechnicianReport) -> bytes:
     def note(text):
         story.append(Paragraph(escape(text), styles["ReportNote"]))
 
-    def table(headers, rows, widths=None):
+    def table(headers, rows, widths=None, padding=4):
         values = [[Paragraph(escape(str(value)), styles["ReportCell"]) for value in row]
                   for row in [headers, *rows]]
         result = Table(values, colWidths=widths or [doc.width / len(headers)] * len(headers), repeatRows=1)
@@ -48,8 +48,8 @@ def build_technician_pdf(report: WeeklyTechnicianReport) -> bytes:
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#dce4ec")),
             ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#c8cdd2")),
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("TOPPADDING", (0, 0), (-1, -1), 4),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("TOPPADDING", (0, 0), (-1, -1), padding),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), padding),
         ]))
         story.extend([result, Spacer(1, 6)])
 
@@ -73,7 +73,7 @@ def build_technician_pdf(report: WeeklyTechnicianReport) -> bytes:
           [[r["KPI"], *[_value(r[c], r["Unit"]) for c in
                        ("Current Week", "Previous Week", "4-Week Average", "Target")], r["Status"]]
            for r in report.metrics.to_dict("records")],
-          [doc.width * v for v in (0.25, 0.14, 0.14, 0.16, 0.12, 0.19)])
+          [doc.width * v for v in (0.25, 0.14, 0.14, 0.16, 0.12, 0.19)], padding=3)
     heading("Technician Workload Summary")
     table(["Measure", "Value"], [[r.Measure, _value(r.Value, r.Unit)] for r in report.workload.itertuples()],
           [doc.width * 0.65, doc.width * 0.35])
@@ -104,9 +104,9 @@ def build_technician_pdf(report: WeeklyTechnicianReport) -> bytes:
     heading("12-Week Technician Performance History")
     note("Weekly actuals and the dashboard's pooled 4-week averages; gaps indicate unavailable KPI values.")
     fig = Figure(figsize=(10, 6), layout="constrained")
-    axes = fig.subplots(2, 3)
+    axes = fig.subplots(2, 4)
     for axis, key in zip(axes.flat, ("labor_efficiency", "first_time_fix", "pm_peer_share",
-                                    "pm_closed", "avg_response_min", "avg_repair_min")):
+                                    "pm_closed", "avg_response_min", "avg_repair_min", "call_peer_share")):
         definition = KPI_DEFS[key]
         trend = report.trend
         x = list(range(len(trend)))
@@ -121,6 +121,8 @@ def build_technician_pdf(report: WeeklyTechnicianReport) -> bytes:
         axis.tick_params(axis="y", labelsize=8)
         axis.grid(alpha=0.2)
         axis.legend(fontsize=6)
+    for axis in axes.flat[7:]:
+        axis.set_visible(False)
     image = BytesIO()
     fig.savefig(image, format="png", dpi=130)
     story.append(Image(BytesIO(image.getvalue()), width=doc.width, height=doc.width * 0.60))

@@ -324,8 +324,19 @@ def set_week_lock(engine: Engine, dataset: str, year: int, week: int, locked: bo
 def _num(v) -> float | None:
     if v is None or (isinstance(v, str) and not v.strip()):
         return None
-    v = pd.to_numeric(v, errors="coerce")
-    return None if pd.isna(v) else float(v)
+    number = pd.to_numeric(v, errors="coerce")
+    if pd.isna(number):
+        if pd.isna(v):
+            return None
+        raise ValueError(f"Invalid numeric value: {v!r}.")
+    return float(number)
+
+
+def _whole_count(v, label: str) -> float | None:
+    number = _num(v)
+    if number is not None and not number.is_integer():
+        raise ValueError(f"{label} must be a whole number.")
+    return number
 
 
 def save_dayforce_week(engine: Engine, year: int, week: int, rows: list[dict]) -> int:
@@ -372,7 +383,8 @@ def save_pm_status_week(engine: Engine, year: int, week: int, rows: list[dict]) 
             area = clean_text(row.get("area"))
             if not area:
                 continue
-            pm_open, pm_closed = _num(row.get("pm_open")), _num(row.get("pm_closed"))
+            pm_open = _whole_count(row.get("pm_open"), f"{area} PMs Open")
+            pm_closed = _whole_count(row.get("pm_closed"), f"{area} PMs Closed")
             comments = clean_text(row.get("comments"))
             cond = (PMAreaStatus.year == year, PMAreaStatus.calendar_week == week, PMAreaStatus.area == area)
             if pm_open is None and pm_closed is None and not comments:

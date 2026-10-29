@@ -62,7 +62,9 @@ def to_hours(series: pd.Series) -> pd.Series:
     hhmm = s.str.fullmatch(r"\d{1,3}:\d{2}").fillna(False).astype(bool)
     if hhmm.any():
         parts = s[hhmm].str.split(":", expand=True).astype(float)
-        hours.loc[hhmm] = parts[0] + parts[1] / 60.0
+        valid_minutes = parts[1] < 60
+        valid_index = parts.index[valid_minutes]
+        hours.loc[valid_index] = parts.loc[valid_index, 0] + parts.loc[valid_index, 1] / 60.0
     return hours
 
 

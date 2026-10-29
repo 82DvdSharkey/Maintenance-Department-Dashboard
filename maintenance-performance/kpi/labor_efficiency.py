@@ -27,6 +27,7 @@ def qualifying_labor_rows(fiix: pd.DataFrame, max_hours_per_wo: float | None = N
     """Rows whose WO Type counts toward labor, with a mapped technician and plausible numeric Time Spent."""
     mask = fiix["counts_toward_labor"].fillna(False).astype(bool)
     mask &= fiix["technician_id"].notna() & fiix["time_spent_hours"].notna()
+    mask &= fiix["time_spent_hours"] >= 0
     if max_hours_per_wo:
         mask &= fiix["time_spent_hours"] <= max_hours_per_wo
     return fiix[mask]

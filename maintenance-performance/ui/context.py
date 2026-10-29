@@ -9,9 +9,10 @@ import streamlit as st
 from sqlalchemy.engine import Engine
 
 from database import repository as repo
-from database.database import create_db_engine, get_app_settings, init_db
+from database.database import DEFAULT_KPI_TARGETS, create_db_engine, get_app_settings, init_db, seed_kpi_targets
 from kpi.dataset import (
-    BaseData, FilterState, apply_filters, prepare_base, technician_pm_shares, technician_weekly_trend,
+    BaseData, FilterState, apply_filters, prepare_base, technician_call_shares, technician_pm_shares,
+    technician_weekly_trend,
 )
 from kpi.scorecard import KPIInputs, department_summary, shift_scorecard, technician_scorecard, weekly_trend
 from utils.dates import (
@@ -90,6 +91,7 @@ class DashboardContext:
         result = technician_scorecard(inputs or self.inputs, self.base.technicians)
         if inputs is None:
             result = result.merge(technician_pm_shares(self.base, self.filters), on="technician_id", how="left")
+            result = result.merge(technician_call_shares(self.base, self.filters), on="technician_id", how="left")
         return result
 
     def shift_scorecard(self, inputs: KPIInputs | None = None, technicians: pd.DataFrame | None = None) -> pd.DataFrame:
@@ -165,4 +167,8 @@ def render_global_filters(base: BaseData, offset_hours: float, is_admin: bool = 
 
 def kpi_targets_dict(engine: Engine) -> dict:
     df = repo.load_kpi_targets(engine)
+    # Cached engines can survive a code reload introducing new targets.
+    if set(DEFAULT_KPI_TARGETS) - set(df["kpi_key"]):
+        seed_kpi_targets(engine)
+        df = repo.load_kpi_targets(engine)
     return {r["kpi_key"]: r for r in df.to_dict("records")}

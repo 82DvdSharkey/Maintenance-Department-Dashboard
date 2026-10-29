@@ -1,6 +1,7 @@
 """Source directory scanning, import tracking, duplicate prevention and database rebuild."""
 from __future__ import annotations
 
+import hashlib
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -80,17 +81,20 @@ def scan_source_files(spec: SourceSpec, settings: dict) -> list[Path]:
     return sorted(files, key=_sort_key)
 
 
-def _file_identity(path: Path) -> tuple[datetime, int]:
+def _file_identity(path: Path) -> tuple[datetime, int, str]:
     st = path.stat()
-    return datetime.fromtimestamp(st.st_mtime).replace(microsecond=0), st.st_size
+    digest = hashlib.sha256()
+    with path.open("rb") as file:
+        for block in iter(lambda: file.read(1024 * 1024), b""):
+            digest.update(block)
+    return datetime.fromtimestamp(st.st_mtime).replace(microsecond=0), st.st_size, digest.hexdigest()
 
 
 def _already_imported(conn: Connection, path: Path) -> bool:
-    modified, size = _file_identity(path)
+    _, _, file_hash = _file_identity(path)
     return conn.execute(select(FileImportHistory.import_id).where(
-        FileImportHistory.filename == path.name,
-        FileImportHistory.file_size == size,
-        FileImportHistory.file_modified == modified,
+        FileImportHistory.full_path == str(path.resolve()),
+        FileImportHistory.file_hash == file_hash,
         FileImportHistory.status == "success",
     )).first() is not None
 
@@ -142,13 +146,14 @@ def _table_columns(conn: Connection, table: str) -> list[str]:
 
 def import_file(engine: Engine, spec: SourceSpec, path: Path, settings: dict) -> ImportOutcome:
     fn_year, fn_week = parse_filename_week(path.name)
-    history = dict(source=spec.name, filename=path.name, full_path=str(path), file_modified=None,
-                   file_size=None, filename_year=fn_year, filename_week=fn_week)
+    history = dict(source=spec.name, filename=path.name, full_path=str(path.resolve()), file_modified=None,
+                   file_size=None, file_hash=None, filename_year=fn_year, filename_week=fn_week)
     warnings: list[str] = []
     try:
-        history["file_modified"], history["file_size"] = _file_identity(path)
+        history["file_modified"], history["file_size"], history["file_hash"] = _file_identity(path)
         if spec.importer:
-            return spec.importer(engine, path, settings, history["file_modified"], history["file_size"])
+            return spec.importer(engine, path, settings, history["file_modified"], history["file_size"],
+                                 history["file_hash"])
         result = spec.loader(path, settings)
         df = result.frame
         warnings += result.warnings

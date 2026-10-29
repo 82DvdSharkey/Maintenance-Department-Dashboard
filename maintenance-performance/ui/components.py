@@ -29,6 +29,8 @@ TECH_SCORECARD_COLUMNS = {
     "pm_peer_share_pct": "PM Completion Share (Shift/Crew) %",
     "pm_peer_reason": "PM Peer Comparison Note",
     "maintenance_calls": "Ignition Maintenance Calls",
+    "call_peer_share_pct": "Maintenance Call Share (Shift/Crew) %",
+    "call_peer_reason": "Maintenance Call Peer Comparison Note",
     "avg_call_duration_min": "Avg Call Duration Min", "avg_ack_duration_min": "Avg Ack Duration Min",
     "avg_response_duration_min": "Avg Response Duration Min", "avg_repair_duration_min": "Avg Repair Duration Min",
 }
@@ -115,13 +117,14 @@ def kpi_card(defn: KPIDef, current, previous=None, rolling=None, target_row: dic
 
 
 def kpi_card_grid(defs: list[KPIDef], current: pd.Series, previous: pd.Series | None, targets: dict,
-                  per_row: int = 4) -> None:
+                  per_row: int = 4, compare: bool = True) -> None:
     for i in range(0, len(defs), per_row):
         cols = st.columns(per_row)
         for col, d in zip(cols, defs[i:i + per_row]):
             with col:
                 prev = previous.get(d.column) if previous is not None else None
-                kpi_card(d, current.get(d.column), prev, current.get(f"{d.column}_r4"), targets.get(d.key))
+                kpi_card(d, current.get(d.column), prev, current.get(f"{d.column}_r4"), targets.get(d.key),
+                         compare=compare)
 
 
 def show_table(df: pd.DataFrame, columns: dict[str, str] | None = None, height: int | None = None,

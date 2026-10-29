@@ -87,6 +87,7 @@ class FileImportHistory(Base):
     full_path = Column(String, nullable=False)
     file_modified = Column(DateTime)
     file_size = Column(Integer)
+    file_hash = Column(String)
     import_datetime = Column(DateTime, nullable=False)
     row_count = Column(Integer, default=0)
     inserted_count = Column(Integer, default=0)

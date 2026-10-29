@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import pandas as pd
 
+from kpi.peer_shares import technician_peer_share
+
 DURATION_COLUMNS = {
     "raw_call_duration": "call_duration_min",
     "raw_ack_duration": "ack_duration_min",
@@ -57,3 +59,9 @@ def summarize_calls(calls: pd.DataFrame, by: list[str] | None = None) -> pd.Data
     if not by:
         out = out.drop(columns="_all")
     return out[by + ["maintenance_calls"] + list(AVG_COLUMNS.values())]
+
+
+def technician_call_peer_share(calls: pd.DataFrame, technicians: pd.DataFrame) -> pd.DataFrame:
+    """Share of already-filtered maintenance calls in the technician's shift-and-crew group."""
+    counts = calls.groupby("technician_id")["id"].count()
+    return technician_peer_share(counts, technicians, prefix="call_peer", activity="maintenance calls")

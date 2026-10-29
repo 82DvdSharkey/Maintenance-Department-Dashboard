@@ -32,7 +32,7 @@ KPI_DEFS: dict[str, KPIDef] = {
         KPIDef("pm_closed", "PMs Closed", "pm_completed", "count", None,
                "Technician KPI. Number of Fiix 'Preventative (PM)' work orders with a Closed status completed by the "
                "technician (Completed By). Duplicate / admin-only closures are excluded. Shift value = sum of its technicians."),
-        KPIDef("pm_peer_share", "PM Completion Share (Shift/Crew)", "pm_peer_share_pct", "%", None,
+        KPIDef("pm_peer_share", "PM Completion Share (Shift/Crew)", "pm_peer_share_pct", "%", "higher",
                "Own closed Fiix PMs divided by total closed PMs for the same shift AND crew, including self. "
                "Uses active, non-lead maintenance technicians, including peers with zero completions. "
                "N/A without both designations, another eligible peer, or group completions. "
@@ -40,6 +40,11 @@ KPI_DEFS: dict[str, KPIDef] = {
         KPIDef("maintenance_calls", "Maintenance Calls", "maintenance_calls", "count", None,
                "Count of Ignition calls where CallType = Maintenance (trimmed, case-insensitive). "
                "Department totals include calls with no TechName."),
+        KPIDef("call_peer_share", "Maintenance Call Share (Shift/Crew)", "call_peer_share_pct", "%", "higher",
+               "Own Ignition maintenance calls divided by total maintenance calls for the same shift AND crew, "
+               "including self, times 100. Uses active, non-lead maintenance technicians. "
+               "Person filters do not reduce the group. N/A without both designations, another eligible peer, "
+               "or group calls. Uses current technician master designations."),
        KPIDef("avg_ack_min", "MTTA", "avg_ack_duration_min", "min", "lower",
                "Average time from maintenance request to technician acknowledgement. RawAckDuration ÷ 60."),
         KPIDef("avg_response_min", "Avg Response Time", "avg_response_duration_min", "min", "lower",
@@ -57,7 +62,7 @@ EXECUTIVE_KPIS = ["labor_efficiency", "first_time_fix", "pm_completion", "mainte
 # PM Completion % is a department KPI; technicians and shifts are measured on closed PM work orders instead.
 PEOPLE_KPIS = ["labor_efficiency", "first_time_fix", "pm_closed", "maintenance_calls",
                "avg_ack_min", "avg_response_min", "avg_repair_min", "avg_call_min"]
-TECHNICIAN_KPIS = [*PEOPLE_KPIS[:3], "pm_peer_share", *PEOPLE_KPIS[3:]]
+TECHNICIAN_KPIS = [*PEOPLE_KPIS[:3], "pm_peer_share", "call_peer_share", *PEOPLE_KPIS[4:]]
 
 
 def pm_area_defs(areas: list[str]) -> list[KPIDef]:
