@@ -1,0 +1,93 @@
+# Quick Reference: Daniel Kragel Unmapped Names Fix
+
+## The Issue
+✗ 3,514 Fiix work orders for "Dan Kragel" are **NOT** being attributed to technician ID 14
+
+## The Root Cause
+- Fiix data contains: `completed_by="Dan Kragel"` → normalizes to key `"dan kragel"`
+- Technician record exists: ID=14, name="Dan Kragel", but **fiix_name=NULL**
+- No Fiix source alias exists to map "dan kragel" → technician_id=14
+- **Result:** 3,514 work orders cannot be matched to the technician
+
+## Database Location
+```
+C:\Users\e38738\OneDrive - Magna\Team Metrics\Final Assembly Performance\GitHub\
+  └─ maintenance-performance\
+     └─ data\
+        └─ maintenance_metrics.db (691.9 MB)
+```
+
+## Current State
+| Component | Status |
+|-----------|--------|
+| Technician "Dan Kragel" | ✓ Exists (ID=14) |
+| fiix_name field | ✗ NULL |
+| Fiix source aliases | ✗ None |
+| Unmapped work orders | 3,514 |
+| Dayforce alias | ✓ Exists ("Kragel, Daniel N") |
+
+## The Fix
+Run this SQL command to add the missing Fiix alias:
+
+```sql
+INSERT INTO technician_aliases (source, alias, alias_key, technician_id)
+VALUES ('fiix', 'Dan Kragel', 'dan kragel', 14);
+```
+
+## Verification
+After running the fix:
+
+```sql
+-- Confirm alias was added
+SELECT * FROM technician_aliases 
+WHERE technician_id = 14 AND source = 'fiix';
+
+-- Should return:
+-- alias_id: (new ID)
+-- source: 'fiix'
+-- alias: 'Dan Kragel'
+-- alias_key: 'dan kragel'
+-- technician_id: 14
+```
+
+## Next Steps
+1. Execute the INSERT statement above
+2. Restart the Streamlit dashboard application
+3. Dashboard will rebuild the alias index on startup
+4. 3,514 work orders will now resolve to Dan Kragel (technician_id=14)
+5. Verify his hours/metrics in the dashboard
+
+## Key Findings Summary
+
+| Finding | Value |
+|---------|-------|
+| Unmapped Work Orders | 3,514 |
+| Technician ID | 14 |
+| Technician Name | Dan Kragel |
+| Raw Fiix Value | "Dan Kragel" |
+| Normalized Key | "dan kragel" |
+| Missing Element | Fiix source alias |
+| Solution | INSERT 1 row into technician_aliases |
+
+## Why This Happened
+The application resolves Fiix work orders using an alias index built from:
+1. Technician names
+2. Source-specific name fields (fiix_name, dayforce_name, ignition_name)
+3. Technician aliases table entries
+
+Dan Kragel's fiix_name was never populated, and no Fiix source alias was created. Without either of these, the 3,514 work orders from Fiix with "Dan Kragel" as completed_by cannot be matched to his technician record.
+
+## Impact
+- **Labor hours:** Unknown but significant (3,514 work orders)
+- **Metrics affected:** Labor efficiency, PM completion, FTF rates, peer shares
+- **Performance reports:** Excluding Dan Kragel's work entirely
+- **Severity:** HIGH - Systematic data exclusion
+
+## Files with Analysis
+1. `DANIEL_KRAGEL_FINDINGS.md` - Detailed technical analysis
+2. `DANIEL_KRAGEL_ANALYSIS.md` - Root cause analysis (legacy)
+
+---
+**Report Date:** 2026-10-30  
+**Database:** maintenance_metrics.db  
+**Status:** Ready for fix implementation
