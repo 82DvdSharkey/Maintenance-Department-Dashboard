@@ -78,7 +78,7 @@ def test_filter_summary_keeps_global_and_dashboard_area_filters_distinct():
         areas = ["Assembly Cell 1"]
         shifts = ["1st Shift"]
         technician_ids = [7]
-        ff_groups = []
+        ff_groups = ["FA", "POST SMT"]
         wo_types = []
 
     class Context:
@@ -95,6 +95,7 @@ def test_filter_summary_keeps_global_and_dashboard_area_filters_distinct():
     assert summary["Crew area"] == "SMT"
     assert summary["Shift"] == "1st Shift"
     assert summary["Technician"] == "Technician A"
+    assert summary["Ignition FocusFactory"] == "DAS1, Post SMT, Post-SMT"
 
 
 def test_long_tables_repeat_headers_and_page_numbers_without_local_paths():

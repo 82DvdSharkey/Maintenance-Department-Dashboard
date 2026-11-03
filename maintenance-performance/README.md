@@ -362,7 +362,7 @@ The global filters in the sidebar stay the same on every page:
 - Calendar week, week range or date range
 - Shift
 - Technician
-- FF Group
+- FF Group: also filters all Ignition call metrics through FocusFactory (FA = DAS1, SMT = SMT, Post SMT = Post SMT or Post-SMT). Multiple groups combine their calls. With no group selected, all factories remain in scope. This applies to call counts, call share, MTTA, response time, MTTR, total call duration, trends, comparisons, drill-downs and exports. The executive FF Group selector overrides the sidebar group selection.
 - IgnAreaName
 - WO Type
 

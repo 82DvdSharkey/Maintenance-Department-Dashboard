@@ -29,6 +29,7 @@ from reportlab.lib.units import inch
 from reportlab.pdfgen import canvas
 from reportlab.platypus import Image, LongTable, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
+from kpi.dataset import focus_factories_for_ff_groups
 from utils.dates import week_label
 
 _PATH_PATTERNS = (
@@ -92,6 +93,8 @@ def dashboard_filter_summary(ctx, extra_filters: dict[str, Any] | None = None) -
         "Shift": _joined(ctx.filters.shifts),
         "Technician": _joined([ctx.tech_name(i) for i in ctx.filters.technician_ids]),
         "FF Group": _joined(ctx.filters.ff_groups),
+        "Ignition FocusFactory": _joined(getattr(ctx.filters, "focus_factories", [])
+                         or focus_factories_for_ff_groups(ctx.filters.ff_groups)),
         "WO Type": _joined(ctx.filters.wo_types),
     }
     for label, value in (extra_filters or {}).items():

@@ -60,6 +60,7 @@ class FilterState:
     areas: list[str] = field(default_factory=list)
     wo_types: list[str] = field(default_factory=list)
     label: str = ""
+    focus_factories: list[str] = field(default_factory=list)
 
     @property
     def end_week(self) -> int | None:
@@ -162,6 +163,13 @@ def _fiix_mask(df: pd.DataFrame, state: FilterState) -> pd.Series:
     return mask
 
 
+def focus_factories_for_ff_groups(ff_groups: list[str]) -> list[str]:
+    mapping = {"FA": ("DAS1",), "SMT": ("SMT",), "POST SMT": ("Post SMT", "Post-SMT"),
+               "POST-SMT": ("Post SMT", "Post-SMT")}
+    return list(dict.fromkeys(factory for group in ff_groups
+                              for factory in mapping.get(group.strip().upper(), (group.strip(),))))
+
+
 def apply_filters(base: BaseData, state: FilterState) -> KPIInputs:
     s = base.app_settings
     fiix_all = base.fiix[_fiix_mask(base.fiix, state)]
@@ -173,6 +181,11 @@ def apply_filters(base: BaseData, state: FilterState) -> KPIInputs:
     calls_mask = _period_mask(base.calls, "call_time", state) & _people_mask(base.calls, state)
     if state.areas:
         calls_mask &= base.calls["ign_area_name"].isin(state.areas)
+    focus_factories = state.focus_factories or focus_factories_for_ff_groups(state.ff_groups)
+    if focus_factories:
+        factories = base.calls["focus_factory"].astype("string").str.strip().str.casefold()
+        selected = [factory.strip().casefold() for factory in focus_factories]
+        calls_mask &= factories.isin(selected)
     calls_all = base.calls[calls_mask]
     labor_rows = qualifying_labor_rows(fiix, float(s.get("max_time_spent_hours_per_wo") or 0) or None)
     dayforce = base.dayforce[weekly_mask(base.dayforce)]

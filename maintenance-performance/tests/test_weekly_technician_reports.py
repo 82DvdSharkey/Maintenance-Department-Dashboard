@@ -11,7 +11,7 @@ from database.database import create_db_engine, get_app_settings, init_db
 from database.models import DayforceHours, FiixWorkOrder, IgnitionCall, PMAreaStatus, Technician
 from kpi.dataset import FilterState, apply_filters, prepare_base
 from kpi.definitions import KPI_DEFS, TECHNICIAN_KPIS
-from kpi.ignition_metrics import summarize_calls
+from kpi.ignition_metrics import MINUTE_COLUMNS, summarize_calls
 from kpi.scorecard import technician_scorecard
 from kpi.targets import evaluate_status
 from reporting.technician_pdf import build_technician_pdf
@@ -25,6 +25,7 @@ from reporting.weekly_technician import (
 from pages.executive_dashboard import _context_for_ff_group, _labor_context_for_ff_group
 from pages.technician_dashboard import period_snapshot, year_to_date_context
 from ui.context import DashboardContext
+from ui.export_view import build_export
 from utils.dates import week_bounds
 
 NOW = datetime(2026, 10, 19, 8, tzinfo=LOCAL_ZONE)
@@ -340,6 +341,66 @@ def test_executive_ff_group_filter_uses_exact_group_and_overrides_sidebar(
     assert filtered.filters.ff_groups == [expected_group]
     assert set(filtered.inputs.fiix["ff_group"]) == {expected_group}
     assert ctx.filters.ff_groups == ["FA1"]
+
+
+@pytest.mark.parametrize(
+    ("selection", "expected_mttr", "expected_count"),
+    [("FA", 10.0, 1), ("SMT", 30.0, 1), ("Post SMT", 80.0, 1),
+     ("All FF Groups", 84.0, 5)],
+)
+@pytest.mark.parametrize("post_factory", ["Post SMT", "Post-SMT"])
+@pytest.mark.parametrize("filter_source", ["executive", "sidebar"])
+def test_ff_group_filters_all_ignition_metrics(
+    report_context, selection, expected_mttr, expected_count, post_factory, filter_source
+):
+    ctx = report_context
+    template = ctx.base.calls[ctx.base.calls["week_key"].eq(202640)].iloc[[0]]
+    ctx.base.calls = pd.concat([template] * 5, ignore_index=True)
+    ctx.base.calls["id"] = range(900, 905)
+    ctx.base.calls["focus_factory"] = [" das1 ", "SMT", post_factory, None, "Other"]
+    ctx.base.calls["ign_machine_name"] = "Test machine"
+    for multiplier, column in enumerate(MINUTE_COLUMNS, start=1):
+        ctx.base.calls[column] = pd.Series([10.0, 30.0, 80.0, 100.0, 200.0]) * multiplier
+
+    if filter_source == "executive":
+        filtered = _context_for_ff_group(ctx, selection)
+    else:
+        filters = replace(ctx.filters, ff_groups=[] if selection == "All FF Groups" else [selection.upper()])
+        filtered = replace(ctx, filters=filters, inputs=apply_filters(ctx.base, filters))
+
+    assert len(filtered.inputs.calls) == expected_count
+    assert len(filtered.inputs.calls_all) == expected_count
+    trend = filtered.trend().iloc[-1]
+    summaries = [filtered.department_summary(), trend, filtered.shift_scorecard().iloc[0],
+                 filtered.technician_scorecard().iloc[0]]
+    for group_column in ("ign_area_name", "ign_machine_name"):
+        summaries.append(summarize_calls(filtered.inputs.calls, [group_column]).iloc[0])
+    for summary in summaries:
+        assert summary["maintenance_calls"] == expected_count
+        for multiplier, column in enumerate(MINUTE_COLUMNS, start=1):
+            assert summary[f"avg_{column}"] == pytest.approx(expected_mttr * multiplier)
+    for multiplier, column in enumerate(MINUTE_COLUMNS, start=1):
+        assert trend[f"avg_{column}_r4"] == pytest.approx(expected_mttr * multiplier)
+
+
+@pytest.mark.parametrize("groups, expected_count", [(["FA", "SMT"], 2), (["SMT"], 1), (["Missing"], 0)])
+def test_ignition_ff_group_scope_reaches_peer_shares_and_excel(report_context, groups, expected_count):
+    ctx = report_context
+    ctx.base.calls["focus_factory"] = ctx.base.calls["technician_id"].map({1: "DAS1", 2: "SMT"})
+    filters = replace(ctx.filters, ff_groups=groups)
+    filtered = replace(ctx, filters=filters, inputs=apply_filters(ctx.base, filters))
+
+    assert len(filtered.inputs.calls) == expected_count
+    peers = filtered.technician_scorecard().set_index("technician_id")
+    if expected_count:
+        assert peers.loc[2, "call_peer_share_pct"] == pytest.approx(100.0 / expected_count)
+    else:
+        assert peers["call_peer_share_pct"].isna().all()
+        assert pd.isna(filtered.department_summary()["avg_repair_duration_min"])
+    workbook = BytesIO(build_export(filtered))
+    detail = pd.read_excel(workbook, sheet_name="Ignition Detail")
+    assert len(detail) == expected_count
+    assert set(detail["FocusFactory"]) == set(filtered.inputs.calls["focus_factory"])
 
 
 def test_executive_all_ff_groups_ignores_sidebar_group_filter(report_context):

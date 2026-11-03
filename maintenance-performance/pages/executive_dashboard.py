@@ -7,7 +7,7 @@ import streamlit as st
 import pandas as pd
 
 from kpi.definitions import KPI_DEFS, PEOPLE_KPIS, executive_defs
-from kpi.dataset import crew_area_technician_ids
+from kpi.dataset import crew_area_technician_ids, focus_factories_for_ff_groups
 from kpi.ignition_metrics import summarize_calls
 from kpi.pm_completion import pm_area_summary
 from ui.components import (
@@ -35,7 +35,8 @@ FF_GROUP_FILTERS: dict[str, tuple[str, ...]] = {
 
 
 def _context_for_ff_group(ctx: DashboardContext, selection: str) -> DashboardContext:
-    filters = replace(ctx.filters, ff_groups=list(FF_GROUP_FILTERS[selection]))
+    filters = replace(ctx.filters, ff_groups=list(FF_GROUP_FILTERS[selection]),
+                      focus_factories=focus_factories_for_ff_groups(list(FF_GROUP_FILTERS[selection])))
     filtered = replace(ctx, filters=filters)
     return replace(filtered, inputs=filtered.inputs_for())
 
@@ -70,7 +71,8 @@ def render(ctx) -> None:
     st.caption("This selector overrides the sidebar FF Group filter for Fiix work-order metrics. "
                + (f"When {ff_group} is selected, Labor Efficiency uses {labor_scope} across all FF Groups. "
                   if labor_scope else "")
-               + "Ignition calls and PM completion by area are not tied to FF Group.")
+               + "Ignition calls use FocusFactory: FA = DAS1, SMT = SMT, Post SMT = Post SMT. "
+               + "PM completion by area is not tied to FF Group.")
     st.caption(f"{ctx.settings.get('department_name', '')} · Current calendar week: **{ctx.week_caption()}** · "
                f"Period filter: {ctx.filters.label}")
 
