@@ -9,6 +9,7 @@ import streamlit as st
 from database import repository as repo
 from kpi.labor_efficiency import total_hours_worked
 from kpi.pm_completion import pm_completion_pct
+from ui.page_password import protected_screen
 from utils.dates import production_week, shift_week, split_week_key, week_key, week_label
 from utils.names import build_alias_index, clean_text, name_key
 
@@ -19,6 +20,7 @@ PM_FIELDS = ["area", "pm_open", "pm_closed", "comments"]
 PM_CSV = {"Area": "area", "Open": "pm_open", "Closed": "pm_closed", "Comments": "comments"}
 
 
+@protected_screen
 def render(ctx) -> None:
     st.title("Data Entry")
     t1, t2 = st.tabs(["Dayforce Hours Worked", "PM Open vs Closed"])
@@ -63,6 +65,7 @@ def _week_header(ctx, dataset: str, year: int, week: int) -> bool:
     return locked
 
 
+@protected_screen
 def _lock_button(ctx, col, dataset: str, year: int, week: int, locked: bool) -> None:
     if col.button("Unlock week" if locked else "Lock finalized week", key=f"{dataset}_lock",
                   icon=":material/lock_open:" if locked else ":material/lock:"):
@@ -92,6 +95,7 @@ def _dayforce_grid(ctx, wk: int) -> pd.DataFrame:
     return grid[["technician_id", "technician_name", "shift"] + cols + ["comments"]].sort_values(["shift", "technician_name"])
 
 
+@protected_screen
 def _dayforce_entry(ctx) -> None:
     st.caption("Hours are imported automatically from Dayforce reports (*Dayforce Import* column: REG + OT hours "
                "worked; premium, OT memo, PTO and Tool & Die hours excluded). Enter values here only to correct or "
@@ -166,6 +170,7 @@ def _dayforce_entry(ctx) -> None:
         _dayforce_csv(ctx)
 
 
+@protected_screen
 def _dayforce_csv(ctx) -> None:
     st.caption(f"Required columns: Year, CalendarWeek, Technician. Optional: {', '.join(DAYFORCE_CSV)}. "
                "Technicians are matched by name, Dayforce name or Dayforce alias (exact, case-insensitive).")
@@ -202,6 +207,7 @@ def _pm_grid(ctx, wk: int) -> pd.DataFrame:
     return grid
 
 
+@protected_screen
 def _pm_entry(ctx) -> None:
     st.caption("Enter the number of PMs **Open** (opened / due) and how many of them were **Closed** for each area. "
                "PM Completion % = Closed ÷ Open (% of open PMs closed), reported separately for each area.")

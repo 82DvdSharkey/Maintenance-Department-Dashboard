@@ -10,6 +10,7 @@ import streamlit as st
 from reporting.technician_pdf import build_technician_pdf
 from reporting.technician_review import build_technician_review, build_technician_review_pdf
 from reporting.weekly_technician import build_weekly_technician_report, most_recent_completed_week
+from ui.page_password import protected_screen
 from utils.dates import week_label
 
 logger = logging.getLogger(__name__)
@@ -47,6 +48,7 @@ def render_review_download(ctx, technician_id: int, year: int, container) -> Non
                                   mime="application/pdf", key="pdf_technician")
 
 
+@protected_screen
 def render_technician_reports(ctx) -> None:
     st.subheader("Weekly Technician Reports")
     st.caption("Individual PDF preview and download only. Email, approval and scheduling are not enabled. "

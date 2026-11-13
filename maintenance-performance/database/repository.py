@@ -9,6 +9,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.engine import Engine
 
 from database.database import bump_data_version, read_df
+from database.page_access import protected_write
 from database.models import (
     AdministrativeUser,
     DayforceHours,
@@ -67,6 +68,7 @@ def is_active_administrator(engine: Engine, email: str | None) -> bool:
     return result is not None
 
 
+@protected_write
 def save_administrative_users(engine: Engine, rows: list[dict]) -> None:
     values = []
     seen_emails = set()
@@ -197,6 +199,7 @@ def _tech_values(row: dict) -> dict:
     }
 
 
+@protected_write
 def save_technicians(engine: Engine, rows: list[dict], deactivate_ids: list[int] | None = None) -> None:
     with engine.begin() as conn:
         for row in rows:
@@ -213,7 +216,13 @@ def save_technicians(engine: Engine, rows: list[dict], deactivate_ids: list[int]
     bump_data_version(engine)
 
 
+@protected_write
 def create_technician(engine: Engine, name: str, **fields) -> int:
+    return _insert_technician(engine, name, **fields)
+
+
+def _insert_technician(engine: Engine, name: str, **fields) -> int:
+    """Shared insert; automatic Dayforce discovery does not require the manual-entry password."""
     values = _tech_values({"technician_name": name, **fields})
     with engine.begin() as conn:
         result = conn.execute(sqlite_insert(Technician).values(**values))
@@ -222,12 +231,14 @@ def create_technician(engine: Engine, name: str, **fields) -> int:
     return tech_id
 
 
+@protected_write
 def mark_technicians_reviewed(engine: Engine, technician_ids: list[int]) -> None:
     with engine.begin() as conn:
         conn.execute(update(Technician).where(Technician.technician_id.in_(technician_ids)).values(needs_review=False))
     bump_data_version(engine)
 
 
+@protected_write
 def link_new_technician(engine: Engine, new_id: int, existing_id: int) -> None:
     """Fold an auto-created Dayforce technician into an existing technician (same person, different name)."""
     with engine.begin() as conn:
@@ -245,6 +256,7 @@ def link_new_technician(engine: Engine, new_id: int, existing_id: int) -> None:
     bump_data_version(engine)
 
 
+@protected_write
 def add_alias(engine: Engine, source: str, alias: str, technician_id: int) -> None:
     key = name_key(alias)
     with engine.begin() as conn:
@@ -258,6 +270,7 @@ def add_alias(engine: Engine, source: str, alias: str, technician_id: int) -> No
     bump_data_version(engine)
 
 
+@protected_write
 def delete_aliases(engine: Engine, alias_ids: list[int]) -> None:
     with engine.begin() as conn:
         conn.execute(delete(TechnicianAlias).where(TechnicianAlias.alias_id.in_(alias_ids)))
@@ -266,6 +279,7 @@ def delete_aliases(engine: Engine, alias_ids: list[int]) -> None:
 
 # ---------- configuration ----------
 
+@protected_write
 def save_shifts(engine: Engine, rows: list[dict]) -> None:
     with engine.begin() as conn:
         for row in rows:
@@ -280,6 +294,7 @@ def save_shifts(engine: Engine, rows: list[dict]) -> None:
     bump_data_version(engine)
 
 
+@protected_write
 def save_wo_types(engine: Engine, rows: list[dict]) -> None:
     with engine.begin() as conn:
         for row in rows:
@@ -293,6 +308,7 @@ def save_wo_types(engine: Engine, rows: list[dict]) -> None:
     bump_data_version(engine)
 
 
+@protected_write
 def save_kpi_targets(engine: Engine, rows: list[dict]) -> None:
     with engine.begin() as conn:
         for row in rows:
@@ -311,6 +327,7 @@ def is_week_locked(engine: Engine, dataset: str, year: int, week: int) -> bool:
             WeekLock.dataset == dataset, WeekLock.year == year, WeekLock.calendar_week == week)).first() is not None
 
 
+@protected_write
 def set_week_lock(engine: Engine, dataset: str, year: int, week: int, locked: bool) -> None:
     with engine.begin() as conn:
         if locked:
@@ -339,6 +356,7 @@ def _whole_count(v, label: str) -> float | None:
     return number
 
 
+@protected_write
 def save_dayforce_week(engine: Engine, year: int, week: int, rows: list[dict]) -> int:
     """Upsert rows for one week. Rows with no hours and no comment delete any existing entry."""
     from kpi.labor_efficiency import total_hours_worked
@@ -372,6 +390,7 @@ def save_dayforce_week(engine: Engine, year: int, week: int, rows: list[dict]) -
     return saved
 
 
+@protected_write
 def save_pm_status_week(engine: Engine, year: int, week: int, rows: list[dict]) -> int:
     """Upsert PM Open/Closed counts per area for one week. Blank rows delete any existing entry."""
     if is_week_locked(engine, "pm", year, week):

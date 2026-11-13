@@ -14,6 +14,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.engine import Connection, Engine
 
 from database.database import bump_data_version
+from database.page_access import protected_write
 from database.models import (
     DataQualityIssue,
     DayforceEntry,
@@ -228,6 +229,7 @@ def _refresh(engine: Engine, settings: dict, progress: ProgressCallback | None =
     return outcomes
 
 
+@protected_write
 def rebuild_database(engine: Engine, settings: dict, progress: ProgressCallback | None = None) -> list[ImportOutcome]:
     """Clear imported source data (configuration and manual entries are kept) and re-import all files."""
     with REFRESH_LOCK:

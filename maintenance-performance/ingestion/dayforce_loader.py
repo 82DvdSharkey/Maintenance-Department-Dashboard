@@ -177,7 +177,7 @@ def create_technicians_for_new_employees(engine: Engine, entries: pd.DataFrame) 
         if name.casefold() in taken:
             name = f"{name} ({emp.employee_id})"
         jobs = entries.loc[entries["employee_id"] == emp.employee_id, "job"].dropna().astype(str)
-        repo.create_technician(engine, name, dayforce_id=emp.employee_id, dayforce_name=emp.employee_name,
+        repo._insert_technician(engine, name, dayforce_id=emp.employee_id, dayforce_name=emp.employee_name,
                                active=True, needs_review=True,
                                is_lead=bool(jobs.str.contains("Lead", case=False, regex=False).any()))
         taken.add(name.casefold())

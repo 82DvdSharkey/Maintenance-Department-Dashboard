@@ -7,6 +7,7 @@ from datetime import datetime, time, timedelta
 import pandas as pd
 import streamlit as st
 from sqlalchemy.engine import Engine
+from streamlit.navigation.page import StreamlitPage
 
 from database import repository as repo
 from database.database import DEFAULT_KPI_TARGETS, create_db_engine, get_app_settings, init_db, seed_kpi_targets
@@ -58,6 +59,7 @@ class DashboardContext:
     targets: dict
     version: int
     is_admin: bool = False
+    home_page: StreamlitPage | None = None
 
     @property
     def offset_hours(self) -> float:

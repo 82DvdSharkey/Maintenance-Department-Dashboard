@@ -12,6 +12,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.engine import Engine
 
 from database.models import AppSetting, Base, KPITarget, Shift, WOTypeConfig
+from database.page_access import PASSWORD_KEY, require_operation_access
 from utils.dates import production_week, week_key
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -118,7 +119,8 @@ def load_settings(path: Path = SETTINGS_PATH) -> dict[str, Any]:
     return settings
 
 
-def save_settings(settings: dict[str, Any], path: Path = SETTINGS_PATH) -> None:
+def save_settings(settings: dict[str, Any], path: Path = SETTINGS_PATH, *, engine: Engine) -> None:
+    require_operation_access(engine)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(settings, indent=2), encoding="utf-8")
 
@@ -233,12 +235,16 @@ def read_df(engine: Engine, sql: str, params: dict | None = None, parse_dates: l
 def get_app_settings(engine: Engine) -> dict[str, Any]:
     settings = dict(DEFAULT_APP_SETTINGS)
     with engine.connect() as conn:
-        for row in conn.execute(select(AppSetting.key, AppSetting.value)):
+        for row in conn.execute(select(AppSetting.key, AppSetting.value).where(AppSetting.key != PASSWORD_KEY)):
             settings[row.key] = json.loads(row.value) if row.value is not None else None
     return settings
 
 
 def set_app_setting(engine: Engine, key: str, value: Any, bump: bool = True) -> None:
+    if key == PASSWORD_KEY:
+        raise ValueError("Use the password settings form to configure or replace the password.")
+    if key not in {"data_version", "ftf_verification_days", "ftf_low_volume_threshold"}:
+        require_operation_access(engine)
     with engine.begin() as conn:
         conn.execute(
             sqlite_insert(AppSetting)

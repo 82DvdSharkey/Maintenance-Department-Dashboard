@@ -48,19 +48,6 @@ Keep `secrets.toml` private; it is excluded by `.gitignore`. Once enabled, if au
 stops at a setup message and does not grant unauthenticated access. Entra sign-in is tenant-scoped by the configured
 metadata URL.
 
-**Administration and Data Entry password:** when no password is configured, an administrator is prompted in the app
-to create and confirm a password of at least 12 characters. The app generates a random salt and stores only a
-PBKDF2-SHA256 hash and salt in the SQLite `app_settings` table; the plain password is never persisted. The pages unlock
-for that session immediately. Later sessions enter the password in the sidebar; use **Lock Administration and Data
-Entry** to relock them. Existing `admin_page_password` values in `.streamlit/secrets.toml` remain supported and are
-migrated into the database after a successful unlock.
-
-For server deployments, keep `data/maintenance_metrics.db` on persistent storage. If the database is reset or stored
-on an ephemeral filesystem, the saved password is lost and first-run password creation will be required again. When
-Microsoft sign-in is enabled, only an authorized administrator can create or unlock this password. While sign-in is
-disabled, anyone who can reach the app before first-time setup can claim the initial password, so perform setup only
-on a trusted, access-restricted deployment.
-
 On the first database initialization, the app seeds `David.Sharkey@Magna.Com` as the bootstrap administrator if the
 separate administrative-user list is empty. Administrators can maintain that list under **Administration →
 Administrative Users**. Admins have full access. Other signed-in users can view only Executive, Shift, Ignition and
@@ -70,6 +57,29 @@ technician, and their dashboard PDFs omit person-level sections.
 
 Microsoft sign-in does not configure scheduled email delivery. Sending reports through Outlook still requires a
 separately approved Microsoft Graph mail integration.
+
+### Administration and Data Entry password
+
+Until a password is configured, both menus and their functions remain accessible to administrators, including on
+upgrades. To enable protection, open **Administration → Password**, fill in the masked **New Password** and
+**Confirm Password** fields, and choose **Save Password**. Both fields are required and must match. Invalid entries
+or a failed database save show an error and do not enable protection.
+
+A successful save immediately locks both menus and returns to the Executive Dashboard. The menus remain visible;
+select either to enter the shared password. **Unlock** opens both menus for the current app session; an incorrect
+password or **Cancel** leaves them locked. A new browser/app session or server restart requires unlocking again.
+Existing Microsoft sign-in and administrator permissions still apply. Other menus, source refreshes and exports
+keep their existing behavior.
+
+To replace a configured password, unlock Administration and open **Password** again. The **Current Password**
+must also be verified. Saving a replacement relocks the current session and invalidates other sessions' previous
+unlocks on their next access. Protected screens, their action handlers and manual/configuration write operations
+check access on the Streamlit server, including when a protected URL is opened directly. There is no separate API.
+
+Only a random salt and PBKDF2-HMAC-SHA256 hash (600,000 iterations) are saved in SQLite's `app_settings` table, not
+the password. Keep the configured database on persistent storage and protect its backups and local filesystem.
+Password-setting read failures or malformed settings fail closed with an error; they are not treated as fresh
+setup. This menu password is not a replacement for Microsoft sign-in, network restrictions or filesystem security.
 
 ### Quarterly and annual performance-review export
 

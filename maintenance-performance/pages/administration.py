@@ -20,6 +20,7 @@ from database.database import (
 from ingestion.file_manager import SOURCES, pending_files, rebuild_database, refresh_weekly_data, scan_source_files
 from kpi import data_quality as dq
 from ui.components import show_table
+from ui.page_password import protected_screen, render_password_settings
 from ui.technician_reports import render_technician_reports
 
 
@@ -28,13 +29,14 @@ def _flash(message: str) -> None:
     st.rerun()
 
 
+@protected_screen
 def render(ctx) -> None:
     st.title("Administration")
     if msg := st.session_state.pop("admin_message", None):
         st.success(msg)
     tabs = st.tabs(["Data Sources", "Technicians", "Name Mapping", "Shifts", "WO Types",
                     "KPI Targets & Settings", "Import History", "Backup & Rebuild", "Technician Reports",
-                    "Administrative Users"])
+                    "Administrative Users", "Password"])
     with tabs[0]:
         _sources(ctx)
     with tabs[1]:
@@ -59,8 +61,11 @@ def render(ctx) -> None:
         render_technician_reports(ctx)
     with tabs[9]:
         _administrative_users(ctx)
+    with tabs[10]:
+        render_password_settings(ctx)
 
 
+@protected_screen
 def _administrative_users(ctx) -> None:
     st.caption("Administrative users are separate from the technician master. Active users have full application access.")
     users = repo.load_administrative_users(ctx.engine)
@@ -86,6 +91,7 @@ def _administrative_users(ctx) -> None:
             _flash("Administrative users saved.")
 
 
+@protected_screen
 def _sources(ctx) -> None:
     s = dict(ctx.settings)
     st.caption("Point each source at its root folder. Patterns are relative to the folder; `*/*.csv` reads the "
@@ -116,7 +122,7 @@ def _sources(ctx) -> None:
                      dayforce_file_patterns=[p.strip() for p in df_pat.split(",") if p.strip()],
                      ignition_sheet_name=sheet.strip() or "Dataset 1", department_name=dept.strip(),
                      week_start_offset_hours=offset)
-            save_settings(s)
+            save_settings(s, engine=ctx.engine)
             set_app_setting(ctx.engine, "dayforce_excluded_jobs",
                             [p.strip() for p in excluded.split(",") if p.strip()])
             _flash("Settings saved.")
@@ -174,6 +180,7 @@ def _filter_technicians(techs: pd.DataFrame, shifts: list[str]) -> tuple[pd.Data
     return techs[mask], signature
 
 
+@protected_screen
 def _review_new_technicians(ctx, techs: pd.DataFrame) -> None:
     new = techs[techs["needs_review"]]
     if new.empty:
@@ -204,6 +211,7 @@ def _review_new_technicians(ctx, techs: pd.DataFrame) -> None:
                 _flash(f"Linked {names[source]} to {other_names[target]} (Dayforce ID moved; duplicate removed).")
 
 
+@protected_screen
 def _technicians(ctx) -> None:
     st.caption("Shift is assigned here only — it is never inferred from work-order times. "
                "Fiix / Ignition / Dayforce name columns are matched exactly (case-insensitive).")
@@ -247,6 +255,7 @@ def _technicians(ctx) -> None:
         _flash(f"Technicians saved.{note}")
 
 
+@protected_screen
 def _name_mapping(ctx) -> None:
     unmapped = dq.unmapped_names(ctx.base.fiix, ctx.base.calls, dq.counted_dayforce_entries(ctx.base))
     techs = ctx.base.technicians
@@ -300,6 +309,7 @@ def _name_mapping(ctx) -> None:
         _flash("Aliases removed.")
 
 
+@protected_screen
 def _shifts(ctx) -> None:
     edited = st.data_editor(repo.load_shifts(ctx.engine), num_rows="dynamic", hide_index=True,
                             key=f"shift_editor_{ctx.version}",
@@ -312,6 +322,7 @@ def _shifts(ctx) -> None:
         _flash("Shifts saved.")
 
 
+@protected_screen
 def _wo_types(ctx) -> None:
     wo = repo.load_wo_types(ctx.engine)
     new = int((~wo["reviewed"]).sum())
@@ -335,6 +346,7 @@ def _wo_types(ctx) -> None:
         _flash("WO Type configuration saved.")
 
 
+@protected_screen
 def _targets(ctx) -> None:
     st.markdown("**KPI targets**")
     st.caption("Watch band: values within this distance of target show *Watch*. "
@@ -388,6 +400,7 @@ def _targets(ctx) -> None:
             _flash("KPI settings saved.")
 
 
+@protected_screen
 def _backup_rebuild(ctx) -> None:
     db_path = resolve_db_path(ctx.settings)
     st.markdown(f"**Database:** `{db_path}`")

@@ -230,6 +230,7 @@ def test_preview_and_download_use_identical_pdf_and_selection_clears_cache(repor
     import streamlit as st
     from streamlit.testing.v1 import AppTest
 
+    report_context.is_admin = True
     app = AppTest.from_string(
         "import streamlit as st\n"
         "from ui.technician_reports import render_technician_reports\n"
@@ -264,6 +265,7 @@ def test_preview_and_download_use_identical_pdf_and_selection_clears_cache(repor
 def test_report_ui_invalidates_download_when_source_data_changes(report_context):
     from streamlit.testing.v1 import AppTest
 
+    report_context.is_admin = True
     app = AppTest.from_string(
         "import streamlit as st\n"
         "from ui.technician_reports import render_technician_reports\n"
