@@ -7,7 +7,7 @@ from __future__ import annotations
 import streamlit as st
 
 from database import repository as repo
-from database.database import get_data_version, load_settings, resolve_db_path
+from database.database import get_app_settings, get_data_version, load_settings, resolve_db_path, set_app_setting
 from ingestion.file_manager import refresh_weekly_data
 from kpi.dataset import apply_filters
 from pages import (
@@ -22,7 +22,13 @@ from pages import (
     technician_dashboard,
 )
 from ui.auto_refresh import auto_refresh
-from ui.access_control import auth_is_configured, identity_email, page_is_visible, verify_page_password
+from ui.access_control import (
+    auth_is_configured,
+    create_page_password,
+    identity_email,
+    page_is_visible,
+    verify_page_password,
+)
 from ui.context import DashboardContext, get_engine, kpi_targets_dict, load_base, render_global_filters
 from ui.export_view import build_export
 
@@ -108,16 +114,41 @@ with st.sidebar:
             run_refresh()
         if msg := st.session_state.pop("refresh_message", None):
             st.success(msg)
-        try:
-            password_settings = st.secrets.get("admin_page_password", {})
-        except Exception:
-            password_settings = {}
+        password_settings = get_app_settings(engine).get("admin_page_password")
+        password_storage = "database"
+        if not isinstance(password_settings, dict) or not password_settings.get("hash") or not password_settings.get("salt"):
+            try:
+                password_settings = st.secrets.get("admin_page_password", {})
+            except Exception:
+                password_settings = {}
+            password_storage = "secrets"
         password_hash = str(password_settings.get("hash", "")).strip()
         password_salt = str(password_settings.get("salt", "")).strip()
+        password_is_configured = bool(password_hash and password_salt)
         if st.session_state.get("admin_pages_unlocked", False):
             if st.button("Lock Administration and Data Entry", icon=":material/lock:", width="stretch"):
                 st.session_state["admin_pages_unlocked"] = False
                 st.rerun()
+        elif not password_is_configured:
+            with st.form("admin_page_password_setup_form", clear_on_submit=True):
+                st.caption("Create a password of at least 12 characters. It will be saved as a salted hash in the application database.")
+                new_password = st.text_input("New Administration/Data Entry password", type="password")
+                confirm_password = st.text_input("Confirm password", type="password")
+                submitted = st.form_submit_button("Create password and unlock", width="stretch")
+            if submitted:
+                try:
+                    if new_password != confirm_password:
+                        raise ValueError("Passwords do not match.")
+                    password_settings = create_page_password(new_password)
+                except ValueError as exc:
+                    st.session_state["admin_page_password_error"] = str(exc)
+                else:
+                    set_app_setting(engine, "admin_page_password", password_settings, bump=False)
+                    st.session_state["admin_pages_unlocked"] = True
+                    st.session_state.pop("admin_page_password_error", None)
+                    st.rerun()
+            if error := st.session_state.pop("admin_page_password_error", None):
+                st.sidebar.error(error)
         else:
             with st.form("admin_pages_unlock_form", clear_on_submit=True):
                 page_password = st.text_input("Administration/Data Entry password", type="password")
@@ -125,14 +156,16 @@ with st.sidebar:
             if submitted:
                 if password_hash and password_salt and verify_page_password(
                         page_password, password_salt, password_hash):
+                    if password_storage == "secrets":
+                        set_app_setting(engine, "admin_page_password", {
+                            "salt": password_salt, "hash": password_hash,
+                        }, bump=False)
                     st.session_state["admin_pages_unlocked"] = True
                     st.session_state.pop("admin_page_password_error", None)
                     st.rerun()
-                st.session_state["admin_page_password_error"] = True
-            if st.session_state.pop("admin_page_password_error", False):
-                st.sidebar.error("Incorrect password or password protection is not configured.")
-            if not password_hash or not password_salt:
-                st.sidebar.caption("Protected pages stay locked until an administrator configures the password in secrets.toml.")
+                st.session_state["admin_page_password_error"] = "Incorrect password."
+            if error := st.session_state.pop("admin_page_password_error", None):
+                st.sidebar.error(error)
 
 version = get_data_version(engine)
 base = load_base(engine, db_path, version)

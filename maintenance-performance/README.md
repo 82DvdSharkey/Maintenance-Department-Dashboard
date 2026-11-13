@@ -48,17 +48,18 @@ Keep `secrets.toml` private; it is excluded by `.gitignore`. Once enabled, if au
 stops at a setup message and does not grant unauthenticated access. Entra sign-in is tenant-scoped by the configured
 metadata URL.
 
-**Administration and Data Entry password:** these two pages remain hidden until an administrator unlocks them for the
-current Streamlit session. Configure a PBKDF2-SHA256 hash and random salt in `.streamlit/secrets.toml`; do not store the
-plain password. Generate the values from the `maintenance-performance` directory with:
+**Administration and Data Entry password:** when no password is configured, an administrator is prompted in the app
+to create and confirm a password of at least 12 characters. The app generates a random salt and stores only a
+PBKDF2-SHA256 hash and salt in the SQLite `app_settings` table; the plain password is never persisted. The pages unlock
+for that session immediately. Later sessions enter the password in the sidebar; use **Lock Administration and Data
+Entry** to relock them. Existing `admin_page_password` values in `.streamlit/secrets.toml` remain supported and are
+migrated into the database after a successful unlock.
 
-```powershell
-python -c "import getpass, hashlib, secrets; password=getpass.getpass('New page password: '); salt=secrets.token_bytes(16); print('salt = '+repr(salt.hex())); print('hash = '+repr(hashlib.pbkdf2_hmac('sha256', password.encode(), salt, 600000).hex()))"
-```
-
-Place the output under `[admin_page_password]` in `.streamlit/secrets.toml`. The protected pages stay unavailable if
-the hash or salt is missing. Unlocking is session-scoped; use **Lock Administration and Data Entry** in the sidebar
-to lock them again. If Microsoft sign-in is enabled, the user must also have administrator authorization.
+For server deployments, keep `data/maintenance_metrics.db` on persistent storage. If the database is reset or stored
+on an ephemeral filesystem, the saved password is lost and first-run password creation will be required again. When
+Microsoft sign-in is enabled, only an authorized administrator can create or unlock this password. While sign-in is
+disabled, anyone who can reach the app before first-time setup can claim the initial password, so perform setup only
+on a trusted, access-restricted deployment.
 
 On the first database initialization, the app seeds `David.Sharkey@Magna.Com` as the bootstrap administrator if the
 separate administrative-user list is empty. Administrators can maintain that list under **Administration →

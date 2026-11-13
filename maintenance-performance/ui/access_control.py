@@ -3,11 +3,13 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import secrets
 from collections.abc import Mapping
 
 READ_ONLY_PAGES = frozenset({"executive", "shifts", "ignition", "fiix"})
 PASSWORD_PROTECTED_PAGES = frozenset({"admin", "data-entry"})
 PAGE_PASSWORD_ITERATIONS = 600_000
+PAGE_PASSWORD_MIN_LENGTH = 12
 AUTH_REQUIRED_SETTINGS = frozenset({
     "redirect_uri", "cookie_secret", "client_id", "client_secret", "server_metadata_url",
 })
@@ -59,3 +61,13 @@ def verify_page_password(password: str, salt_hex: str, expected_hash_hex: str) -
         "sha256", password.encode("utf-8"), salt, PAGE_PASSWORD_ITERATIONS
     )
     return hmac.compare_digest(actual_hash, expected_hash)
+
+
+def create_page_password(password: str) -> dict[str, str]:
+    if len(password) < PAGE_PASSWORD_MIN_LENGTH:
+        raise ValueError(f"Password must be at least {PAGE_PASSWORD_MIN_LENGTH} characters.")
+    salt = secrets.token_bytes(16)
+    password_hash = hashlib.pbkdf2_hmac(
+        "sha256", password.encode("utf-8"), salt, PAGE_PASSWORD_ITERATIONS
+    )
+    return {"salt": salt.hex(), "hash": password_hash.hex()}

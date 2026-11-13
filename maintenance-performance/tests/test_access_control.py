@@ -12,6 +12,7 @@ from ui.access_control import (
     READ_ONLY_PAGES,
     allowed_pages,
     auth_is_configured,
+    create_page_password,
     identity_email,
     is_admin_email,
     normalize_email,
@@ -45,6 +46,26 @@ def test_page_password_uses_configured_pbkdf2_hash():
     assert not verify_page_password("wrong passphrase", salt.hex(), password_hash)
     assert not verify_page_password("", salt.hex(), password_hash)
     assert not verify_page_password("local passphrase", "invalid", password_hash)
+
+
+def test_created_page_password_config_round_trips_without_storing_plaintext():
+    from database.database import get_app_settings, set_app_setting
+
+    engine = create_db_engine(":memory:")
+    init_db(engine)
+    password = "A secure passphrase 2026"
+    config = create_page_password(password)
+    assert password not in str(config)
+    assert verify_page_password(password, config["salt"], config["hash"])
+    set_app_setting(engine, "admin_page_password", config, bump=False)
+    saved_config = get_app_settings(engine)["admin_page_password"]
+    assert saved_config == config
+    assert verify_page_password(password, saved_config["salt"], saved_config["hash"])
+
+
+def test_created_page_password_requires_minimum_length():
+    with pytest.raises(ValueError, match="at least 12 characters"):
+        create_page_password("too short")
 
 
 def test_admin_email_matching_is_case_insensitive_and_trimmed():
