@@ -22,7 +22,7 @@ from pages import (
     technician_dashboard,
 )
 from ui.auto_refresh import auto_refresh
-from ui.access_control import allowed_pages, auth_is_configured, identity_email
+from ui.access_control import auth_is_configured, identity_email, page_is_visible, verify_page_password
 from ui.context import DashboardContext, get_engine, kpi_targets_dict, load_base, render_global_filters
 from ui.export_view import build_export
 
@@ -108,6 +108,31 @@ with st.sidebar:
             run_refresh()
         if msg := st.session_state.pop("refresh_message", None):
             st.success(msg)
+        try:
+            password_settings = st.secrets.get("admin_page_password", {})
+        except Exception:
+            password_settings = {}
+        password_hash = str(password_settings.get("hash", "")).strip()
+        password_salt = str(password_settings.get("salt", "")).strip()
+        if st.session_state.get("admin_pages_unlocked", False):
+            if st.button("Lock Administration and Data Entry", icon=":material/lock:", width="stretch"):
+                st.session_state["admin_pages_unlocked"] = False
+                st.rerun()
+        else:
+            with st.form("admin_pages_unlock_form", clear_on_submit=True):
+                page_password = st.text_input("Administration/Data Entry password", type="password")
+                submitted = st.form_submit_button("Unlock protected pages", width="stretch")
+            if submitted:
+                if password_hash and password_salt and verify_page_password(
+                        page_password, password_salt, password_hash):
+                    st.session_state["admin_pages_unlocked"] = True
+                    st.session_state.pop("admin_page_password_error", None)
+                    st.rerun()
+                st.session_state["admin_page_password_error"] = True
+            if st.session_state.pop("admin_page_password_error", False):
+                st.sidebar.error("Incorrect password or password protection is not configured.")
+            if not password_hash or not password_salt:
+                st.sidebar.caption("Protected pages stay locked until an administrator configures the password in secrets.toml.")
 
 version = get_data_version(engine)
 base = load_base(engine, db_path, version)
@@ -161,7 +186,7 @@ page_entries = [
     ("data-quality", _page(data_quality, "Data Quality", ":material/fact_check:", "data-quality")),
     ("admin", _page(administration, "Administration", ":material/settings:", "admin")),
 ]
-page_policy = allowed_pages(is_admin)
-visible_pages = [page for key, page in page_entries if page_policy is None or key in page_policy]
+password_unlocked = st.session_state.get("admin_pages_unlocked", False)
+visible_pages = [page for key, page in page_entries if page_is_visible(key, is_admin, password_unlocked)]
 nav = st.navigation(visible_pages)
 nav.run()

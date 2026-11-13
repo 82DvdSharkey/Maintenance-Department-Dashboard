@@ -15,6 +15,8 @@ from ui.access_control import (
     identity_email,
     is_admin_email,
     normalize_email,
+    page_is_visible,
+    verify_page_password,
 )
 
 
@@ -23,8 +25,26 @@ def test_read_only_users_only_get_approved_dashboard_pages():
     assert READ_ONLY_PAGES == {"executive", "shifts", "ignition", "fiix"}
 
 
-def test_admin_gets_all_pages():
+def test_admin_gets_all_pages_only_after_password_gate_unlocks():
+    assert allowed_pages(False) == READ_ONLY_PAGES
     assert allowed_pages(True) is None
+    assert not page_is_visible("admin", True, False)
+    assert not page_is_visible("data-entry", True, False)
+    assert page_is_visible("admin", True, True)
+    assert page_is_visible("data-entry", True, True)
+    assert page_is_visible("technicians", True, False)
+    assert not page_is_visible("admin", False, True)
+
+
+def test_page_password_uses_configured_pbkdf2_hash():
+    import hashlib
+
+    salt = bytes.fromhex("a1" * 16)
+    password_hash = hashlib.pbkdf2_hmac("sha256", b"local passphrase", salt, 600_000).hex()
+    assert verify_page_password("local passphrase", salt.hex(), password_hash)
+    assert not verify_page_password("wrong passphrase", salt.hex(), password_hash)
+    assert not verify_page_password("", salt.hex(), password_hash)
+    assert not verify_page_password("local passphrase", "invalid", password_hash)
 
 
 def test_admin_email_matching_is_case_insensitive_and_trimmed():
